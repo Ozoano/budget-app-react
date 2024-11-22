@@ -1,0 +1,139 @@
+/**
+* dashboard component
+* 
+* login form - to create user acc
+* conditional rendering - if username does not exist, then take the person to <Intro> comps to create acc
+* else, display the userName to the dom * 
+* Loader function - to fetch data from local storage
+* 
+* dashBoardIntroACtion -- action function to get/submit data(request) from the FORM created inside the intro Comps
+* and add it to the localStorage
+*/
+
+// rrd imports
+import { useLoaderData } from "react-router-dom";
+
+// library imports
+import { toast } from "react-toastify";
+
+// components
+import Intro from "../components/Intro";
+import AddBudgetForm from "../components/AddBudgetForm";
+import AddExpenseForm from "../components/AddExpenseForm";
+import BudgetItem from "../components/BudgetItem";
+
+//  helper functions
+import { createBudget, createExpense, fetchData, wait } from "../helpers"
+
+const Dashboard = () => {
+  // we are getting the userName & budgets from the loader func via useLoaderData()
+  const { userName, budgets } = useLoaderData()
+
+  return (
+    // if user exist, display form to <AddBudgetForm/>, else, display <Intro> to create user
+    <>
+      {userName ? (
+        <div className="dashboard">
+          <h1>Welcome back, <span className="accent">{userName}</span></h1>
+          <div className="grid-sm">
+            {/* {budgets && budgets.length > 0 ? () : ()} */}
+            {
+              budgets && budgets.length > 0 ?
+                ( 
+                <div className="grid-lg">
+                  <div className="flex-lg">
+                        <AddBudgetForm />
+                        {/* if budget exist, then show expense form, which is passed as a prop to the AddExpenseForm */}
+                        <AddExpenseForm budgets = {budgets} />
+                    </div>
+                    {/* display existing budgets on a <BudgetItem/> */}
+                    <h2>Existing Budget</h2>
+                    <div className="budgets">
+                      {
+                        budgets.map(budget =>(
+                          <BudgetItem key={budget.id} budget ={budget}/>
+                        ))
+                      }
+                  </div>
+                </div>
+             ) 
+              : ( 
+                 <div className="grid-sm">
+                  <p>Personal budgeting is the secret to financial freedom</p>
+                  <p>Create a budget to get started</p>
+                  <AddBudgetForm />
+                </div> 
+                 )
+            } 
+          </div>
+        </div>
+      ) : <Intro />}
+    </>
+  )
+}
+export default Dashboard
+
+
+// loader
+export function dashboardLoader() {
+  const userName = fetchData("userName");
+  const budgets = fetchData("budgets");
+  return { userName, budgets }
+}
+
+// action
+export async function dashboardIntroAction({ request }) {
+// wait function called from <helper/> to slow down submission
+await wait()
+
+  const data = await request.formData();
+  const { _action, ...values } = Object.fromEntries(data)
+
+  /**Now listen to each form fields in the <Intro/> and <AddBudgetForm/> */
+
+  // new user submission
+  if (_action === "newUser") {
+    try {
+      localStorage.setItem("userName", JSON.stringify(values.userName))
+      return toast.success(`Welcome, ${values.userName}`)
+    } catch (e) {
+      throw new Error("There was a problem creating your account.")
+    }
+  }
+
+  // For Add Budget Form
+  if (_action === "createBudget") {
+    try {
+
+  // localStorage.setItem("newBudget", JSON.stringify(values.newBudget))
+ // localStorage.setItem("newBudgetAmount", JSON.stringify(values.newBudgetAmount)); 
+   
+ // created the Budget on the <Helper/> comp
+//  Then added value here
+    createBudget({
+        name: values.newBudget,
+        amount: values.newBudgetAmount,
+      })
+
+      return toast.success("Budget created!")
+    } catch (e) {
+      throw new Error("There was a problem creating your budget.")
+    }
+  }
+
+    // For budget expense
+    if (_action === "createExpense") {
+      try {
+        createExpense({
+          name: values.newExpense,
+          amount: values.newExpenseAmount,
+          budgetId: values.newExpenseBudget
+        })
+        // toast success
+        return toast.success(`Expense ${values.newExpense} created`)
+      } catch (error) {
+        throw new Error("There was a problem creating your budget expense");
+        
+      }
+    }
+}
